@@ -1,0 +1,17 @@
+[
+  {
+    "id": 1,
+    "word": "ELMA",
+    "forbidden": ["Meyve", "Kırmızı", "Ağaç", "Amasya", "Yeşil"]
+  },
+  {
+    "id": 2,
+    "word": "FUTBOL",
+    "forbidden": ["Top", "Kale", "Maç", "Hakem", "Ofsayt"]
+  },
+  {
+    "id": 3,
+    "word": "TELEVİZYON",
+    "forbidden": ["Ekran", "Kanal", "Kumanda", "İzlemek", "Dizi"]
+  }
+]
