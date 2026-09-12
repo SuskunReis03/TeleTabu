@@ -14,7 +14,7 @@ def load_cards():
         with open("cards.json", "r", encoding="utf-8") as f:
             return json.load(f)
     except Exception as e:
-        logging.error(f"cards.json hatası: {e}")
+        logging.error(f"cards.json yüklenirken hata oluştu: {e}")
         return []
 
 CARDS = load_cards()
@@ -23,7 +23,7 @@ CARDS = load_cards()
 games = {}
 
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """/start Komutu: Gruba ekleme butonu içerir"""
+    """/start Komutu: Hoş geldin mesajı ve gruba ekleme butonu"""
     bot_username = context.bot.username
     add_to_group_url = f"https://t.me/{bot_username}?startgroup=true"
     
@@ -246,6 +246,7 @@ if __name__ == "__main__":
     app.add_handler(CommandHandler("bitir", stop_command))
     app.add_handler(CallbackQueryHandler(button_handler))
     
-    print("TeleTabu Bot çalışıyor...")
-    app.run_polling()
-    
+    print("TeleTabu Bot başarıyla başlatıldı...")
+    # drop_pending_updates=True eklenerek eski takılı kalan istekler temizlenir.
+    app.run_polling(drop_pending_updates=True)
+        
