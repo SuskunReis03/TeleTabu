@@ -14,7 +14,7 @@ def load_cards():
         with open("cards.json", "r", encoding="utf-8") as f:
             return json.load(f)
     except Exception as e:
-        logging.error(f"cards.json yüklenirken hata oluştu: {e}")
+        logging.error(f"cards.json hatası: {e}")
         return []
 
 CARDS = load_cards()
@@ -28,14 +28,14 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     welcome_text = (
         "👋 **TeleTabu Oyun Botuna Hoş Geldiniz!**\n\n"
-        "Grubunuzda arkadaşlarınızla eğlenceli Tabu oyunları oynamak için beni bir gruba ekleyebilirsiniz.\n\n"
-        "🎮 **Gruba Ekledikten Sonra:**\n"
-        "Grubunuzda `/game` veya `/oyun` yazarak oyunu başlatabilirsiniz!"
+        "Grubunuzda arkadaşlarınızla canlı Tabu oynamak için beni grubunuza ekleyebilirsiniz.\n\n"
+        "🎮 **Hızlı Başlangıç:**\n"
+        "Grubunuzda `/game` yazarak oyunu başlatabilirsiniz!"
     )
     
     keyboard = [
         [InlineKeyboardButton("➕ Beni Gruba Ekle", url=add_to_group_url)],
-        [InlineKeyboardButton("📖 Kurallar", callback_data="show_rules")]
+        [InlineKeyboardButton("📜 Oyun Kuralları", callback_data="show_rules")]
     ]
     
     await update.message.reply_text(welcome_text, reply_markup=InlineKeyboardMarkup(keyboard), parse_mode="Markdown")
@@ -44,9 +44,9 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     rules_text = (
         "📜 **TELETABU OYUN KURALLARI**\n\n"
         "1️⃣ **Anlatıcı:** Butondan 'Kelimeye Bak' diyerek kartını öğrenir.\n"
-        "2️⃣ **Doğru Tahmin:** Bildiğini iddia eden oyuncu '✅ Doğru Bildim' butonuna basar ve yeni anlatıcı olur.\n"
-        "3️⃣ **Pas Hakkı:** Anlatıcının 3 pas hakkı vardır, '🔄 Pas (Kelimeyi Değiştir)' butonu ile kartı yeniler.\n"
-        "4️⃣ **Oyun Modları:** Normal Tabu (yazılı) ve Sesli Tabu (sesli mesaj/sohbet)."
+        "2️⃣ **Doğru Tahmin (+1):** Bilen kişi '✅ Doğru' butonuna basar, puan kazanılır ve **yeni anlatıcı** o olur.\n"
+        "3️⃣ **Tabu (-1):** Anlatıcı yasaklı kelime söylerse '❌ Tabu' butonuna basılır ve 1 puan düşer.\n"
+        "4️⃣ **Pas Hakkı:** Anlatıcının 3 pas hakkı vardır, tıkanırsa kartı değiştirebilir."
     )
     await update.message.reply_text(rules_text, parse_mode="Markdown")
 
@@ -82,12 +82,17 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     action = data[0]
     user = query.from_user
 
-    # Kurallar
-    if action == "show" and len(data) > 1 and data[1] == "rules":
-        await query.answer("📜 Kurallar:\n• Anlatıcı 'Kelimeye Bak' butonu ile kartını görür.\n• Doğru tahmin eden kişi 'Doğru Bildim' basıp yeni anlatıcı sırasını alır.\n• 3 Pas hakkı bulunur.", show_alert=True)
+    if action == "show_rules":
+        await query.answer(
+            "📜 Kurallar:\n"
+            "• Kelimeye Bak: Sadece anlatıcı görebilir.\n"
+            "• Doğru Bildim: Bildim diyen basar ve yeni anlatıcı olur!\n"
+            "• Tabu: Yasaklı kelime söylenirse basılır (-1 Puan).\n"
+            "• Pas: 3 Hak bulunur.",
+            show_alert=True
+        )
         return
 
-    # Oyun Modu Seçimi
     if action == "selectmode":
         mode = data[1]
         chat_id = int(data[2])
@@ -149,13 +154,13 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         game["describer_id"] = user.id
         game["describer_name"] = user.first_name
         game["current_card"] = random.choice(CARDS)
-        game["pas_rights"] = 3  # Yeni anlatıcıya pas hakları yenilenir
+        game["pas_rights"] = 3
 
         await query.answer("🎉 Doğru bildiniz! Sıradaki anlatıcı sizsiniz.")
         mode_title = "🎙️ SESLİ TABU" if game["mode"] == "sesli" else "📝 NORMAL TABU"
         
         text = (
-            f"🎉 **Tebrikler!** [{user.first_name}](tg://user?id={user.id}) doğru tahmin etti!\n\n"
+            f"🎉 **Tebrikler!** [{user.first_name}](tg://user?id={user.id}) doğru tahmin etti! (+1 Puan)\n\n"
             f"🎮 **{mode_title}**\n"
             f"🗣️ **Yeni Anlatıcı:** [{user.first_name}](tg://user?id={user.id})\n"
             f"📊 **Mevcut Puan:** {game['score']} | 🔄 **Kalan Pas:** {game['pas_rights']}\n\n"
@@ -163,7 +168,24 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         await query.edit_message_text(text, reply_markup=InlineKeyboardMarkup(create_game_keyboard(chat_id)), parse_mode="Markdown")
 
-    # --- PAS / KELİME DEĞİŞTİR BUTONU ---
+    # --- TABU BUTONU ---
+    elif action == "taboo":
+        game["score"] -= 1
+        game["current_card"] = random.choice(CARDS)
+
+        await query.answer("💥 TABU yapıldı! 1 puan düşüldü.")
+        mode_title = "🎙️ SESLİ TABU" if game["mode"] == "sesli" else "📝 NORMAL TABU"
+
+        text = (
+            f"💥 **TABU YAPILDI!** (-1 Puan)\n\n"
+            f"🎮 **{mode_title}**\n"
+            f"🗣️ **Anlatıcı:** [{game['describer_name']}](tg://user?id={game['describer_id']})\n"
+            f"📊 **Mevcut Puan:** {game['score']} | 🔄 **Kalan Pas:** {game['pas_rights']}\n\n"
+            f"👇 Yeni kelimeye bakabilirsiniz."
+        )
+        await query.edit_message_text(text, reply_markup=InlineKeyboardMarkup(create_game_keyboard(chat_id)), parse_mode="Markdown")
+
+    # --- PAS BUTONU ---
     elif action == "pass":
         if user.id != game["describer_id"]:
             await query.answer("⚠️ Kelimeyi sadece sıradaki anlatıcı değiştirebilir!", show_alert=True)
@@ -192,11 +214,14 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await query.edit_message_text(f"🏁 **Oyun Sona Erdi!**\n\n🏆 Toplam Kazanılan Puan: **{score}**", parse_mode="Markdown")
 
 def create_game_keyboard(chat_id):
-    """Yeni Buton Düzeni (Tabu-1 Kaldırıldı, Pas Butonu Öne Alındı)"""
+    """Mükemmel Şekillendirilmiş Buton Düzeni"""
     return [
         [InlineKeyboardButton("👁️ Kelimeye Bak", callback_data=f"showcard_{chat_id}")],
-        [InlineKeyboardButton("✅ Doğru Bildim", callback_data=f"correct_{chat_id}")],
-        [InlineKeyboardButton("🔄 Pas (Kelimeyi Değiştir)", callback_data=f"pass_{chat_id}")],
+        [
+            InlineKeyboardButton("✅ Doğru (+1)", callback_data=f"correct_{chat_id}"),
+            InlineKeyboardButton("❌ Tabu (-1)", callback_data=f"taboo_{chat_id}")
+        ],
+        [InlineKeyboardButton("🔄 Pas Geç", callback_data=f"pass_{chat_id}")],
         [InlineKeyboardButton("🛑 Oyunu Bitir", callback_data=f"stop_{chat_id}")]
     ]
 
